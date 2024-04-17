@@ -1,11 +1,11 @@
 ;;; youdown.el --- script for downloading Youtube videos -*- Emacs-Lisp -*-
 
-;; Copyright (C) 2021 suyeden
+;; Copyright (C) 2024 suyeden
 
 ;; Author: suyeden
-;; Version: 1.0.0
+;; Version: 1.0.1
 ;; Keywords: tools
-;; Package-Requires: ((emacs "27.1") (master-lib "1.0.0") (eprintf.dll) (yt-dlp "2022.01.21") (ffmpeg "4.3.1"))
+;; Package-Requires: ((emacs "27.1") (master-lib "1.0.0") (yt-dlp) (ffmpeg))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -37,6 +37,8 @@
   "接続試行回数")
 (defvar ydl-lib-path (expand-file-name (format "%s/../lib" load-file-name))
   "ライブラリは lib ディレクトリに格納する")
+(defvar filename-size nil
+  "ファイル名文字数の上限")
 
 (defun main ()
   "Youtube の動画をダウンロードするスクリプト"
@@ -51,6 +53,16 @@
       (when (string= "" youdown-mode)
         (setq youdown-mode "1")))
     (princ "\n")
+    ;; ファイル名文字数上限取得
+    (switch-to-buffer "*tmp*")
+    (insert default-directory)
+    (let ((filename-max-size 0))
+      (while (not (= (point) (point-min)))
+    	  (forward-char -1)
+    	  (setq filename-max-size (1+ filename-max-size)))
+      (setq filename-size (- 244 (* 2 filename-max-size))))
+    (kill-buffer (current-buffer))
+    ;; モード実行
     (if (string= "1" youdown-mode)
         (youdown-dl-with-ydlist)
       (if (string= "2" youdown-mode)
@@ -261,9 +273,9 @@
       (catch 'youdown-dl-end
         (if (equal nil cookie-path)
             ;; (my-start-process-shell-command "ydl" "ydl" (format "yt-dlp --external-downloader aria2c --external-downloader-args \"aria2c:-c -x 16 -s 16 -j 16 -k 1M -m 0\" -f bestvideo+bestaudio/best -o \"%s\" \"%s\"" "%(title)s.%(ext)s" url))
-            (my-start-process-shell-command "ydl" "ydl" (format "yt-dlp -f bestvideo+bestaudio/best -o \"%s\" \"%s\"" "%(title)s.%(ext)s" url))
+            (my-start-process-shell-command "ydl" "ydl" (format "yt-dlp -N 5 --trim-filenames %s -f bestvideo+bestaudio/best -o \"%s\" \"%s\"" filename-size "%(title)s.%(ext)s" url))
           ;; (my-start-process-shell-command "ydl" "ydl" (format "yt-dlp --external-downloader aria2c --external-downloader-args \"aria2c:-c -x 16 -s 16 -j 16 -k 1M -m 0\" -f bestvideo+bestaudio/best --cookies \"%s\" -o \"%s\" \"%s\"" cookie-path "%(title)s.%(ext)s" url))
-          (my-start-process-shell-command "ydl" "ydl" (format "yt-dlp -f bestvideo+bestaudio/best --cookies \"%s\" -o \"%s\" \"%s\"" cookie-path "%(title)s.%(ext)s" url)))
+          (my-start-process-shell-command "ydl" "ydl" (format "yt-dlp -N 5 --trim-filenames %s -f bestvideo+bestaudio/best --cookies \"%s\" -o \"%s\" \"%s\"" filename-size cookie-path "%(title)s.%(ext)s" url)))
         (while (<= counter time-limit)
           (sit-for 1)
           ;; ダウンロードの中断を検知
@@ -306,8 +318,8 @@
         (error-max 5))
     (catch 'youdown-dl-simple-end
       (if (equal nil cookie-path)
-          (my-start-process-shell-command "ydl" "ydl" (format "yt-dlp -f bestvideo+bestaudio/best -o \"%s\" \"%s\"" "%(title)s.%(ext)s" url))
-        (my-start-process-shell-command "ydl" "ydl" (format "yt-dlp -f bestvideo+bestaudio/best --cookies \"%s\" -o \"%s\" \"%s\"" cookie-path "%(title)s.%(ext)s" url)))
+          (my-start-process-shell-command "ydl" "ydl" (format "yt-dlp -N 5 --trim-filenames %s -f bestvideo+bestaudio/best -o \"%s\" \"%s\"" filename-size "%(title)s.%(ext)s" url))
+        (my-start-process-shell-command "ydl" "ydl" (format "yt-dlp -N 5 --trim-filenames %s -f bestvideo+bestaudio/best --cookies \"%s\" -o \"%s\" \"%s\"" filename-size cookie-path "%(title)s.%(ext)s" url)))
       (while (<= counter time-limit)
         (sit-for 1)
         ;; ダウンロードの中断を検知
